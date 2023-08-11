@@ -1,0 +1,317 @@
+---
+title: "CaseStudy2"
+author: "Stephanie"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+
+# Loading Data From S3 Objects Using the aws.s3 package
+library(aws.s3)
+library(class)
+library(caret)
+library(e1071)
+library(naniar)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(ROCit)
+library(readxl)
+library(knitr)
+
+Sys.setenv("AWS_ACCESS_KEY_ID" = "AKIAWFX3XJDVJTTPBKEQ",
+           "AWS_SECRET_ACCESS_KEY" = "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",
+           "AWS_DEFAULT_REGION" = "us-east-2")
+
+
+#Read in CaseStudy2-data.csv
+case_study<- s3read_using(FUN = read.csv, 
+                           bucket = "ddsproject1",
+                           object = "CaseStudy2-data.csv")
+
+View(case_study)
+Casestudy2 <- case_study
+
+library(readr)
+CaseStudy2CompSet_No_Attrition <- read_csv("~/MSDS_6306_Doing-Data-Science/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Attrition.csv")
+View(CaseStudy2CompSet_No_Attrition)
+
+library(readxl)
+CaseStudy2CompSet_No_Salary <- read_excel("~/MSDS_6306_Doing-Data-Science/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Salary.xlsx")
+View(CaseStudy2CompSet_No_Salary)
+
+#Review for any missing values
+gg_miss_var(Casestudy2) + ggtitle("Missing Values in Dataset")
+
+#change multiple columns to factors
+Casestudy2[c(3,4,6,9,13,17,19,23,24)] <- lapply(Casestudy2[c(3,4,6,9,13,17,19,23,24)],as.factor)
+
+
+
+# In this chunk, I graphed several ggplots to determine which fields would best determine employee attrition.
+Casestudy2 %>% ggplot(aes(x= YearsAtCompany, fill=JobRole)) + geom_boxplot() + xlab("Years at Company")+ ggtitle(" Years at the Company by Roles")
+
+#Plot Numbner Roles worked within companies
+Casestudy2 %>% ggplot(aes(x= NumCompaniesWorked  , fill=JobRole)) + geom_boxplot() + ggtitle("Number of Companies Worked by Roles")
+
+Casestudy2 %>% ggplot(aes(x= YearsAtCompany  , fill=JobRole)) + geom_boxplot() + ggtitle("Number of Years Worked by Roles")
+
+Casestudy2 %>% ggplot()+
+  geom_point(aes(x=NumCompaniesWorked ,y =YearsInCurrentRole ,color = Attrition),alpha = 0.7,position = 'jitter')+
+  ggtitle('Number of Companies Worked vs Years in Current Role')+
+    scale_color_manual(values=c("Green","Red"))
+
+Casestudy2 %>% ggplot()+
+ geom_point(aes(x=JobLevel ,y =YearsInCurrentRole ,color = Attrition),alpha = 0.7,position = 'jitter')+
+ ggtitle('Number of Companies Worked vs Years in Current Role')+
+ scale_color_manual(values=c("Green","Red"))
+
+Casestudy2 %>% ggplot()+
+     geom_boxplot(aes(x=YearsInCurrentRole, y=JobLevel, fill=Attrition), alpha=0.7)+
+     ggtitle("Attrition by Job Satisfaction")
+
+Casestudy2 %>%  select(Attrition,YearsAtCompany,MonthlyIncome,JobLevel) %>% ggpairs(aes(color = Attrition))
+
+#Plotting Attrition by Years at company
+Casestudy2 %>% ggplot(aes(x = YearsAtCompany, fill = Attrition)) + geom_bar() + ggtitle("Distribution of YearsAtCompany and Attrition") + ylab("Attrition")
+
+#Plotting Attrition by JobLevel
+Casestudy2 %>% ggplot(aes(x = JobLevel, fill = Attrition)) + geom_bar() + ggtitle("Distribution of JobLevel and Attrition") + ylab("Attrition")
+
+#Plotting Attrition by years at current role.
+ggplot(data=Casestudy2, aes(YearsInCurrentRole)) +
+     geom_bar(aes(fill=Attrition), position="fill") +
+     ggtitle('Percentage of Attrition based on Years in Current Role')
+
+#Two spikes, one after about 2 years and one at 10 years with a close 6 years.
+ggplot(Casestudy2, aes(x=TotalWorkingYears)) + geom_bar(aes(fill=Attrition)) + ggtitle("Attrition vs. Total Working Year", subtitle = "Attrition Overview" )
+
+#The bar graph does suggest that there is more attrition in the age around 30, with a median age of 33 years.
+Casestudy2 %>%  ggplot(aes(x = Age, fill = Attrition)) + geom_bar() + ggtitle("Distribution of Age and Attrition") + ylab("Attrition")
+Casestudy2 %>% filter(Attrition == "Yes") %>% ggplot(aes(x = Age, fill = Attrition)) + geom_bar() + ggtitle("Distribution of Age and Attrition") + ylab("Attrition")
+
+#Plot Percentage Attrition by JobLevel filled by years at company
+Casestudy2 %>% group_by(StockOptionLevel, JobLevel, Attrition) %>% summarise(JRCount = n()) %>% group_by(JobLevel) %>% mutate(PA = JRCount/sum(JRCount)) %>% filter(Attrition == "Yes") %>% ggplot(aes(x = JobLevel, y = PA,fill = StockOptionLevel)) + geom_bar(stat="identity") + ggtitle("Distribution of JobLevel by  Attrition") + ylab("Attrition") + xlab("JobLevel")
+ 
+```
+
+
+```{r}
+#Top 3 Attrition Reason
+#From the Attrition Analysis in previous 2 sections - Age, Job Level, Monthly Income, and  Years at Company were identified as important inputs for Attrition.I ran numerous models with knn and NB selecting the 3 variables at a time. The best model that I got was using Naive Bayes model with inputs Age, Job level , and Years at company(which was changed to Factor).
+
+Casestudy2 %>% ggplot(aes(x= JobLevel, fill=Attrition)) + geom_histogram() + ggtitle("Histogram of Job Level by Attrition")
+
+Casestudy2 %>% ggplot(aes(x= MonthlyIncome, fill=Attrition)) + geom_histogram() + ggtitle("Histogram of Monthly Income by Attrition")
+
+Casestudy2 %>% ggplot(aes(x= Age, fill=Attrition)) + geom_histogram() + ggtitle("Histogram of Age by Attrition")
+
+Casestudy2 %>% ggplot(aes(x= YearsAtCompany, fill=Attrition)) + geom_histogram() + ggtitle("Histogram of Years at Company by Attrition")
+
+
+```
+
+
+```{r}
+
+newdata <- Casestudy2 %>% select(c(2,3:9,12:22,26:27,29:36)) 
+dataatt <- newdata %>% group_by(Attrition)
+
+# Creating dataset with "Yes" and "No" Attrition
+datayes <- Casestudy2 %>% filter(Attrition =="Yes")
+datano <- Casestudy2 %>% filter(Attrition =="No")
+
+# NaiveBayes Model with Age(2), Job level(16), YearsAtCompany(33)
+AccHolder = numeric(50)
+SensHolder = numeric(50)
+SpecHolder = numeric(50)
+
+for (seed in 1:50)
+{
+set.seed(seed)
+trainIndices_yes = sample(seq(1:140),115)
+trainIndices_no = sample(seq(1:730),555)
+trainAttrition = rbind(datayes[trainIndices_yes,] , datano[trainIndices_no,])
+testAttrition = rbind(datayes[-trainIndices_yes,], datano[-trainIndices_no,])
+model = naiveBayes(trainAttrition[,c(2,16,33)],trainAttrition$Attrition)
+CM = confusionMatrix(table(testAttrition$Attrition, predict(model,testAttrition[,c(2,16,33)])))
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+}
+
+CM
+
+mean(AccHolder) # Mean Accuracy = 0.88
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(50) 
+mean(SensHolder) # Mean Sensitivity = 0.88
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(50) 
+mean(SpecHolder,na.rm = TRUE) # Mean Specificity = 1
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(50)
+
+### Best Model to Predict Attrition
+# NaiveBayes Model with Age(2),Job level(16), YearsAtCompany (33), and monthly Income (20) to check if the model is stable.
+AccHolder = numeric(50)
+SensHolder = numeric(50)
+SpecHolder = numeric(50)
+
+for (seed in 1:50)
+{
+set.seed(seed)
+trainIndices_yes = sample(seq(1:140),112)
+trainIndices_no = sample(seq(1:730),584)
+trainAttrition = rbind(datayes[trainIndices_yes,] , datano[trainIndices_no,])
+testAttrition = rbind(datayes[-trainIndices_yes,], datano[-trainIndices_no,])
+model = naiveBayes(trainAttrition[,c(2,16,20,33)],trainAttrition$Attrition)
+CM = confusionMatrix(table(testAttrition$Attrition, predict(model,testAttrition[,c(2,16,20,33)])))
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+}
+
+mean(AccHolder) # Mean Accuracy 
+mean(SensHolder) # Mean Sensitivity 
+mean(SpecHolder,na.rm = TRUE) # Mean Specificity 
+AccHolder
+SensHolder
+SpecHolder
+
+# Best prediction model
+set.seed(9)
+trainIndices_yes = sample(seq(1:140),112)
+trainIndices_no = sample(seq(1:730),584)
+trainAttrition = rbind(datayes[trainIndices_yes,] , datano[trainIndices_no,])
+testAttrition = rbind(datayes[-trainIndices_yes,], datano[-trainIndices_no,])
+model = naiveBayes(trainAttrition[,c(2,16,20,33)],trainAttrition$Attrition)
+CM = confusionMatrix(table(testAttrition$Attrition, predict(model,testAttrition[,c(2,16,20,33)])))
+model
+CM
+
+# Accuracy = 0.8218
+# Sensitivity = 0.8662
+# Specificity = 0.4118
+
+```
+
+
+```{r}
+# Data modification for No Attrition Dataset
+
+head(CaseStudy2CompSet_No_Attrition)
+
+CaseStudy2CompSet_No_Attrition$SalaryFactor = cut(CaseStudy2CompSet_No_Attrition$MonthlyIncome, breaks = c(1080,3000,6000,12000,25000),labels = c("<3k","3k to 6k","6k to 12k",">12k"))
+
+CaseStudy2CompSet_No_Attrition$BusinessTravel = as.factor(CaseStudy2CompSet_No_Attrition$BusinessTravel)
+
+CaseStudy2CompSet_No_Attrition$JobLevelFactor = as.factor(CaseStudy2CompSet_No_Attrition$JobLevel)
+
+CaseStudy2CompSet_No_Attrition$WorkYearFactor = cut(CaseStudy2CompSet_No_Attrition$TotalWorkingYears, breaks = c(-1,11,21,40),labels = c("1","2","3"))
+
+CaseStudy2CompSet_No_Attrition$YearsWithCurrManagerFactor  = cut(CaseStudy2CompSet_No_Attrition$YearsWithCurrManager, breaks = c(-1,5,10,17),labels = c("Low","Med","High"))
+
+CaseStudy2CompSet_No_Attrition$Age = as.factor(CaseStudy2CompSet_No_Attrition$Age)
+
+#Prediction of Attrition for No Attrition Data
+CaseStudy2CompSet_No_Attrition$NBPrediction = predict(model,CaseStudy2CompSet_No_Attrition[,c(2,16,20,33)])
+
+
+# Viewing the Prediction
+CaseStudy2CompSet_No_Attrition$NBPrediction
+
+#writing csv file for submission
+write.csv(CaseStudy2CompSet_No_Attrition,file = 'C:\\Users\\Steph\\OneDrive\\Documents\\MSDS_6306_Doing-Data-Science\\Unit 14 and 15 Case Study 2/Case2PredictionsAttrition.csv')
+
+```
+
+
+```{r}
+
+###Salary analysis
+
+Casestudy2 %>% ggplot(aes(x= Age, y=MonthlyIncome)) + geom_point() + ggtitle("Monthly Income by Age") + geom_smooth(method = "lm") 
+
+Casestudy2 %>% ggplot(aes(x= JobLevel, y=MonthlyIncome)) + geom_point() + ggtitle(" Monthly Income by Job Level") + geom_smooth(method = "lm") 
+
+Casestudy2 %>% ggplot(aes(x= YearsAtCompany, y=MonthlyIncome)) + geom_point() + ggtitle(" Monthly Income by Years at Company") + geom_smooth(method = "lm") 
+
+### Salary Models
+
+# Model 1 with Job level
+fit1 = lm(MonthlyIncome~JobLevel, data = Casestudy2)
+summary(fit1)
+confint(fit1)
+fit1_Preds = predict(fit1, newdata = Casestudy2)
+as.data.frame(fit1_Preds)
+plot(density(fit1_Preds),main = "Model 1 Residual with Job Level")
+RMSE1 = sqrt(mean((Casestudy2$MonthlyIncome - fit1_Preds)^2))
+RMSE1= 1411.67
+
+# Model 2 with Age
+fit2 = lm(MonthlyIncome~Age, data = Casestudy2)
+summary(fit2)
+confint(fit2)
+fit2_Preds = predict(fit2, newdata = Casestudy2)
+as.data.frame(fit2_Preds)
+plot(density(fit2_Preds),main = "Model 2 Residual with Age")
+RMSE2 = sqrt(mean((Casestudy2$MonthlyIncome - fit2_Preds)^2))
+RMSE2= 4020.251
+
+# Model 3 combined JobLevel and Age
+fit3 = lm(MonthlyIncome~JobLevel + Age, data = Casestudy2)
+summary(fit3)
+confint(fit3)
+fit3_Preds = predict(fit3, newdata = Casestudy2)
+as.data.frame(fit3_Preds)
+plot(density(fit3_Preds),main = "Model 3 Residual with Job Level and Age")
+RMSE3 = sqrt(mean((Casestudy2$MonthlyIncome - fit3_Preds)^2))
+RMSE3= 1404.01
+
+# Model 4 combined JobLevel, Age, and Years at Company
+fit4 = lm(MonthlyIncome~JobLevel + Age + YearsAtCompany, data = Casestudy2)
+summary(fit4)
+confint(fit4)
+fit4_Preds = predict(fit4, newdata = Casestudy2)
+as.data.frame(fit4_Preds)
+plot(density(fit4_Preds),main = "Model 4 Residual with Job Level, Age, and Years at Company")
+RMSE4 = sqrt(mean((Casestudy2$MonthlyIncome - fit4_Preds)^2))
+RMSE4= 1403.698
+
+```
+#Choosing to predit the test dataset using Model4 since it has a best RMSE
+
+```{r}
+Model1_fit = lm(MonthlyIncome~JobLevel+Age+YearsAtCompany, data = Casestudy2)
+summary(Model1_fit)
+confint(Model1_fit)
+Model1_Preds = predict(Model1_fit, newdata = CaseStudy2CompSet_No_Salary)
+as.data.frame(Model1_Preds)
+MSPE1 = sqrt(mean((Casestudy2$MonthlyIncome - Model1_Preds)^2))
+MSPE1= 5994.025
+
+#salary prediction to file
+MonthlyIncome = predict(Model1_fit, newdata = CaseStudy2CompSet_No_Salary)
+Model1_Preds_df <- as.data.frame(round(MonthlyIncome))
+names(Model1_Preds_df) <- "MonthlyIncome"
+CS2Test2_pred <- cbind(CaseStudy2CompSet_No_Salary, Model1_Preds_df)
+
+CS2Test2_pred %>% 
+  ggplot(aes(x = YearsAtCompany, y = MonthlyIncome)) + geom_point() + ggtitle(" MonthlyIncome v. YearsAtCompany") + geom_smooth(method = "lm") 
+
+CS2Test2_pred %>% 
+  ggplot(aes(x = JobLevel, y = MonthlyIncome)) + geom_point() + ggtitle("MonthlyIncome v. JobLevel") + geom_smooth(method = "lm") 
+
+CS2Test2_pred %>% 
+  ggplot(aes(x = Age, y = MonthlyIncome)) + geom_point() + ggtitle("MonthlyIncome v. Age") + geom_smooth(method = "lm") 
+
+CS2Salary <- CS2Test2_pred %>% select(ID, MonthlyIncome)
+
+#write the predictions to a file
+write.csv(CS2Salary, file = "C:\\Users\\Steph\\OneDrive\\Documents\\MSDS_6306_Doing-Data-Science\\Unit 14 and 15 Case Study 2/Case2PredictionSalary.csv", row.names = FALSE)
+```
