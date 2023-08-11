@@ -37,11 +37,11 @@ View(case_study)
 Casestudy2 <- case_study
 
 library(readr)
-CaseStudy2CompSet_No_Attrition <- read_csv("~/MSDS_6306_Doing-Data-Science/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Attrition.csv")
+CaseStudy2CompSet_No_Attrition <- read_csv("CaseStudy2CompSet No Attrition.csv")
 View(CaseStudy2CompSet_No_Attrition)
 
 library(readxl)
-CaseStudy2CompSet_No_Salary <- read_excel("~/MSDS_6306_Doing-Data-Science/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Salary.xlsx")
+CaseStudy2CompSet_No_Salary <- read_excel("CaseStudy2CompSet No Salary.xlsx")
 View(CaseStudy2CompSet_No_Salary)
 
 #Review for any missing values
@@ -53,6 +53,9 @@ Casestudy2[c(3,4,6,9,13,17,19,23,24)] <- lapply(Casestudy2[c(3,4,6,9,13,17,19,23
 
 
 # In this chunk, I graphed several ggplots to determine which fields would best determine employee attrition.
+
+Casestudy2 %>% ggplot(aes(x= JobSatisfaction, fill=JobRole)) + geom_boxplot() + ggtitle(" Job Satisfation by Roles")
+
 Casestudy2 %>% ggplot(aes(x= YearsAtCompany, fill=JobRole)) + geom_boxplot() + xlab("Years at Company")+ ggtitle(" Years at the Company by Roles")
 
 #Plot Numbner Roles worked within companies
@@ -75,6 +78,9 @@ Casestudy2 %>% ggplot()+
      ggtitle("Attrition by Job Satisfaction")
 
 Casestudy2 %>%  select(Attrition,YearsAtCompany,MonthlyIncome,JobLevel) %>% ggpairs(aes(color = Attrition))
+
+Casestudy2 %>% ggplot(aes(x= JobSatisfaction, fill=Gender)) + geom_boxplot() + ggtitle(" Job Satisfation by Gender")
+
 
 #Plotting Attrition by Years at company
 Casestudy2 %>% ggplot(aes(x = YearsAtCompany, fill = Attrition)) + geom_bar() + ggtitle("Distribution of YearsAtCompany and Attrition") + ylab("Attrition")
@@ -238,6 +244,8 @@ write.csv(CaseStudy2CompSet_No_Attrition,file = 'C:\\Users\\Steph\\OneDrive\\Doc
 Casestudy2 %>% ggplot(aes(x= Age, y=MonthlyIncome)) + geom_point() + ggtitle("Monthly Income by Age") + geom_smooth(method = "lm") 
 
 Casestudy2 %>% ggplot(aes(x= JobLevel, y=MonthlyIncome)) + geom_point() + ggtitle(" Monthly Income by Job Level") + geom_smooth(method = "lm") 
+cor(case_study$JobLevel, case_study$MonthlyIncome)
+
 
 Casestudy2 %>% ggplot(aes(x= YearsAtCompany, y=MonthlyIncome)) + geom_point() + ggtitle(" Monthly Income by Years at Company") + geom_smooth(method = "lm") 
 
@@ -279,7 +287,7 @@ summary(fit4)
 confint(fit4)
 fit4_Preds = predict(fit4, newdata = Casestudy2)
 as.data.frame(fit4_Preds)
-plot(density(fit4_Preds),main = "Model 4 Residual with Job Level, Age, and Years at Company")
+plot(density(fit4_Preds),main = "Model Residual with Job Level, Age, and Years at Company")
 RMSE4 = sqrt(mean((Casestudy2$MonthlyIncome - fit4_Preds)^2))
 RMSE4= 1403.698
 
