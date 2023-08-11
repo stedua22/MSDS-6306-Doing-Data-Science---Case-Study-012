@@ -1,0 +1,9 @@
+name: "My-website"
+navbar:
+  title: "My Website"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Frito Lays Project"
+      href: Case_Study2.html
+      

@@ -28,7 +28,7 @@ ui <- shinyUI(pageWithSidebar(
 server <- function(input, output) {
   
   data <- reactive({
-    dat <- read.csv("Casestudy2.csv", header = TRUE)
+    dat <- read.csv("https://raw.githubusercontent.com/stedua22/MSDS-6306-Doing-Data-Science---Case-Study-02/main/Casestudy2.csv", header = TRUE)
   
     dat
   })
