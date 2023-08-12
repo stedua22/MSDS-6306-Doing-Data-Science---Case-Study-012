@@ -14,3 +14,8 @@ DDSAnalytics is an analytics company that specializes in talent management solut
 -  CasCasestudy2.csv
 - Case_Study2.Rmd
 
+## Links
+- https://stephduads6306.shinyapps.io/Case-Study-02/
+- http://127.0.0.1:7239/
+- file:///C:/Users/Steph/OneDrive/Documents/MSDS_6306_Doing-Data-Science/Test%20Website%201/Project2/Case-Study-02/_site/Case_Study2.html
+- 
