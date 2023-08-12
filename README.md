@@ -11,6 +11,6 @@ DDSAnalytics is an analytics company that specializes in talent management solut
 ## Table of Content
 - Case2PredictionSalary.csv
 - Case2PredictionsAAttrition.csv
-CasCasestudy2.csv
-Case_Study2.Rmd
+- CasCasestudy2.csv
+ - Case_Study2.Rmd
 
