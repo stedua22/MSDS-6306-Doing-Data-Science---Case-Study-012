@@ -1,0 +1,13 @@
+name: Case-Study-02
+title: Case-Study-02
+username: stephduads6306
+account: stephduads6306
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 9587195
+bundleId: 7554939
+url: https://stephduads6306.shinyapps.io/Case-Study-02/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: _site.yml|Case_Study2.html|Case_Study2.Rmd|Case2PredictionSalary.csv|Case2PredictionsAttrition.csv|Casestudy2.csv|CaseStudy2CompSet No Attrition.csv|CaseStudy2CompSet No Salary.xlsx|index.html|index.Rmd|README.md
